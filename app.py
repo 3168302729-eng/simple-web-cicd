@@ -1,5 +1,5 @@
 """
-极简 Flask Web 应用 — CI/CD 实验演示
+极简 Flask Web 应用 — CI/CD 实验演示 v2.0
 作者：叶基宁（2440666106）
 """
 from flask import Flask, render_template_string
@@ -16,7 +16,7 @@ HTML = """<!DOCTYPE html>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #4facfe 100%);
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
         }
         .card {
@@ -25,7 +25,7 @@ HTML = """<!DOCTYPE html>
             text-align: center;
         }
         h1 { color: #333; font-size: 28px; margin-bottom: 8px; }
-        .version { color: #764ba2; font-size: 14px; font-weight: 600; margin-bottom: 24px; }
+        .version { color: #f5576c; font-size: 14px; font-weight: 600; margin-bottom: 24px; }
         .status { display: inline-block; background: #e8f5e9; color: #2e7d32;
                   padding: 6px 16px; border-radius: 20px; font-size: 14px; margin-bottom: 24px; }
         .info { background: #f5f5f5; border-radius: 8px; padding: 16px;
@@ -36,7 +36,7 @@ HTML = """<!DOCTYPE html>
 <body>
     <div class="card">
         <h1>🚀 CI/CD 部署成功！</h1>
-        <p class="version">Flask App v1.0 | Python {{ python_version }}</p>
+        <p class="version">Flask App v2.0 | Python {{ python_version }}</p>
         <div class="status">✅ 服务运行正常</div>
         <div class="info">
             <p><span>学号：</span>2440666106</p>
@@ -65,6 +65,16 @@ def index():
 @app.route("/health")
 def health():
     return {"status": "healthy"}, 200
+
+
+@app.route("/api/version")
+def version():
+    return {
+        "version": "2.0",
+        "author": "叶基宁",
+        "student_id": "2440666106",
+        "features": ["CI/CD 自动部署", "Docker 容器化", "健康检查接口"]
+    }
 
 
 if __name__ == "__main__":

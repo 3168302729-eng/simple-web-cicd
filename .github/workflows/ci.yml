@@ -1,0 +1,95 @@
+name: Flask CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: "验证 & 测试"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+      - name: 运行测试
+        run: python -m pytest test_app.py -v
+
+  build:
+    name: "构建镜像"
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: 构建 Docker 镜像
+        run: docker build -t simple-web:latest .
+      - name: 导出镜像为 tar
+        run: docker save simple-web:latest -o /tmp/simple-web.tar
+      - name: 压缩镜像
+        run: gzip -f /tmp/simple-web.tar
+      - name: 上传镜像 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/simple-web.tar.gz
+          retention-days: 1
+
+  deploy:
+    name: "部署至 ECS"
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: 下载镜像 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: ./
+      - name: 传输到服务器
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,simple-web.tar.gz"
+          target: "/opt/simple-web/"
+      - name: 启动服务
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /opt/simple-web
+            gunzip -f simple-web.tar.gz
+            docker load -i simple-web.tar
+            rm -f simple-web.tar
+            cp docker-compose.prod.yml docker-compose.yml
+            docker compose down --remove-orphans || true
+            docker compose up -d
+            sleep 3
+            curl -s http://localhost:80 || echo "检查完成"
+
+  notify:
+    name: "结果通知"
+    needs: [validate, build, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 汇总
+        run: |
+          echo "CI/CD 流水线完成"
+          echo "验证测试: ${{ needs.validate.result }}"
+          echo "构建镜像: ${{ needs.build.result }}"
+          echo "生产部署: ${{ needs.deploy.result }}"
